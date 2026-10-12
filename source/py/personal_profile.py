@@ -44,7 +44,7 @@ def is_mark_composition(font, first, ligature):
     }
     # Unencoded .case variants of combining marks are also normal composition.
     mark_glyphs |= {g + ".case" for g in mark_glyphs}
-    return all(g in mark_glyphs for g in [first] + ligature.Component)
+    return all(g in mark_glyphs for g in [first, *ligature.Component])
 
 def audit_font(font):
     cmap = font.getBestCmap()
