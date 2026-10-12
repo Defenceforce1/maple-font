@@ -1,0 +1,78 @@
+name: Personal Maple Mono 300
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [v7]
+    paths:
+      - .github/workflows/personal-300.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      BUILD_ARGS: --archive --cn --normal --no-liga --no-nf --no-hinted --width narrow --ttf-only --least-styles
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install font build dependencies
+        run: pip install -r requirements.txt
+      - name: Check final configuration
+        run: |
+          python build.py $BUILD_ARGS --dry > final-config.json
+          python - <<'PY'
+          import json
+          c = json.load(open("final-config.json"))
+          assert c["weight_mapping"]["regular"] == 300
+          assert c["enable_ligature"] is False
+          assert c["nerd_font"]["enable"] is False
+          assert c["cn"]["enable"] is True
+          assert c["use_hinted"] is False
+          assert c["cn"]["use_hinted"] is False
+          assert c["width"] == "narrow"
+          print("Verified: Normal NL NR CN, regular 300, TTF only, four styles")
+          PY
+      - name: Build font
+        run: python build.py $BUILD_ARGS
+      - name: Verify generated Chinese fonts
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from fontTools.ttLib import TTFont
+          files = list(Path("fonts/CN").glob("*.ttf"))
+          assert len(files) == 4, [str(p) for p in files]
+          expected = {"Regular": 300, "Italic": 300, "Bold": 700, "BoldItalic": 700}
+          for p in files:
+              style = p.stem.rsplit("-", 1)[-1]
+              assert style in expected, str(p)
+              with TTFont(p) as f:
+                  assert f["OS/2"].usWeightClass == expected[style], (str(p), f["OS/2"].usWeightClass)
+                  assert ord("中") in f.getBestCmap(), str(p)
+                  assert "fvar" not in f, str(p)
+                  cmap = f.getBestCmap()
+                  assert f["hmtx"].metrics[cmap[ord("中")]][0] == 2 * f["hmtx"].metrics[cmap[ord("A")]][0], str(p)
+                  print(p.name, "weight", f["OS/2"].usWeightClass)
+          PY
+      - name: Upload font archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: Maple-Mono-Normal-NL-NR-CN-300
+          path: |
+            fonts/archive/*.zip
+            final-config.json
+          if-no-files-found: error
+      - name: Create downloadable release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s\n' 'Normal NL NR CN; unhinted; no Nerd Font icons; Regular/Italic weight 300; Bold/BoldItalic weight 700; --ttf-only --least-styles.' > release-notes.txt
+          gh release create "personal-300-${{ github.run_id }}" fonts/archive/*.* --title "Maple Mono Normal NL NR CN — Regular 300" --notes-file release-notes.txt
