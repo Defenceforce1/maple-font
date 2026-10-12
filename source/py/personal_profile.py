@@ -42,8 +42,31 @@ def is_mark_composition(font, first, ligature):
         glyph for cp, glyph in cmap.items()
         if unicodedata.category(chr(cp)).startswith("M")
     }
-    # Unencoded .case variants of combining marks are also normal composition.
+    # Glyph names may change after saving a format-3 post table. Identify
+    # unencoded mark variants by GDEF/GSUB relationships as well as names.
     mark_glyphs |= {g + ".case" for g in mark_glyphs}
+    if "GDEF" in font and font["GDEF"].table.GlyphClassDef:
+        mark_glyphs |= {
+            g for g, cls in font["GDEF"].table.GlyphClassDef.classDefs.items()
+            if cls == 3
+        }
+    if "GSUB" in font:
+        mappings = []
+        for lookup in font["GSUB"].table.LookupList.Lookup:
+            for sub in lookup.SubTable:
+                typ = lookup.LookupType
+                if typ == 7:
+                    typ, sub = sub.ExtensionLookupType, sub.ExtSubTable
+                if typ == 1:
+                    mappings.append(sub.mapping)
+        while True:
+            extra = {
+                target for mapping in mappings for source, target in mapping.items()
+                if source in mark_glyphs
+            }
+            if extra <= mark_glyphs:
+                break
+            mark_glyphs |= extra
     return all(g in mark_glyphs for g in [first, *ligature.Component])
 
 def audit_font(font):
@@ -95,6 +118,7 @@ def apply_chinese_only_profile(font):
             rec.Script.LangSysCount = len(rec.Script.LangSysRecord)
     opts = Options()
     opts.glyph_names = True
+    opts.no_subset_tables += ["meta"]
     opts.name_IDs = ["*"]
     opts.name_languages = ["*"]
     opts.name_legacy = True
