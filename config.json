@@ -17,7 +17,7 @@
     "bold": 525,
     "extrabold": 800
   },
-  "line_height": 0.95,
+  "line_height": 0.90,
   "width": "narrow",
   "feature_freeze": {
     "cv01": "enable",

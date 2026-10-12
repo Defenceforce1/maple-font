@@ -1,4 +1,4 @@
-name: Personal Maple Mono Narrow 300-525 Line 0.95
+name: Personal Maple Mono Narrow 300-525 Line 0.90
 
 on:
   workflow_dispatch:
@@ -54,7 +54,7 @@ jobs:
           assert c["cn"]["use_hinted"] is False
           assert c["cn"]["scale_factor"] == [1.0, 1.0]
           assert c["width"] == os.environ["FONT_WIDTH"]
-          assert c["line_height"] == 0.95
+          assert c["line_height"] == 0.90
           print("Verified:", c["width"], "Regular/Italic 300, Bold/BoldItalic 525")
           PY
       - name: Build font
@@ -93,7 +93,7 @@ jobs:
                   assert aw == 550 and cw == 1100, (str(p), aw, cw)
                   assert f["post"].isFixedPitch, str(p)
                   assert "Jpan" in str(f["meta"].data)
-                  assert f["hhea"].ascent == 969 and f["hhea"].descent == -285, (str(p), f["hhea"].ascent, f["hhea"].descent)
+                  assert f["hhea"].ascent == 918 and f["hhea"].descent == -270, (str(p), f["hhea"].ascent, f["hhea"].descent)
                   hbfont = hb.Font(hb.Face(p.read_bytes()))
                   hbfont.scale = (f["head"].unitsPerEm, f["head"].unitsPerEm)
                   for text in ("-> <-- ==> == === != !== <= >= >>= ffi fi fl", "[TODO] [INFO] __ \\\\"):
@@ -129,5 +129,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          printf '%s\n' 'Narrow; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Regular/Italic 300; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.95; four linked TTF styles; Chinese/Latin width 1100/550.' > release-notes.txt
-          gh release create "personal-300-525-${{ github.run_id }}" packages/*.* --title "Maple Mono CN — Narrow, 300 / 525, line 0.95" --notes-file release-notes.txt
+          printf '%s\n' 'Narrow; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Regular/Italic 300; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; four linked TTF styles; Chinese/Latin width 1100/550.' > release-notes.txt
+          gh release create "personal-300-525-line090-${{ github.run_id }}" packages/*.* --title "Maple Mono CN — Narrow, 300 / 525, line 0.90" --notes-file release-notes.txt
