@@ -6,6 +6,8 @@ on:
     branches: [v7]
     paths:
       - .github/workflows/personal-300.yml
+      - config.json
+      - build.py
 
 permissions:
   contents: write
@@ -38,6 +40,7 @@ jobs:
           assert c["cn"]["enable"] is True
           assert c["use_hinted"] is False
           assert c["cn"]["use_hinted"] is False
+          assert c["cn"]["scale_factor"] == [1.0, 1.0]
           assert c["width"] == "narrow"
           print("Verified: Normal NL NR CN, regular 300, TTF only, four styles")
           PY
