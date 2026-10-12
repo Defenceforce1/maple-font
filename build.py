@@ -11,6 +11,7 @@ from functools import partial
 from os import environ, getcwd, listdir, makedirs, path, remove, getenv
 from typing import Callable, Literal
 from fontTools.ttLib import TTFont
+from fontTools.varLib.instancer import instantiateVariableFont
 from fontTools.ttLib.tables._m_e_t_a import table__m_e_t_a
 from fontTools.feaLib.builder import addOpenTypeFeatures, addOpenTypeFeaturesFromString
 from ttfautohint import StemWidthMode, ttfautohint
@@ -1623,6 +1624,43 @@ def build_variable_fonts(font_config: FontConfig, build_option: BuildOption):
     run(
         f"ftcli converter var2static -out {build_option.output_ttf} {build_option.output_variable}"
     )
+
+    # Duplicate coordinates (Light and Regular at 300) can make ftcli export
+    # only Light-named files. Explicitly preserve the requested four-style names.
+    if font_config.weight_mapping["regular"] == 300:
+        for variable_file in listdir(build_option.output_variable):
+            if not variable_file.endswith(".ttf"):
+                continue
+            variable = TTFont(joinPaths(build_option.output_variable, variable_file))
+            is_italic = "Italic" in variable_file
+            style = "Italic" if is_italic else "Regular"
+            coordinates = {
+                axis.axisTag: axis.defaultValue for axis in variable["fvar"].axes
+            }
+            coordinates["wght"] = 300
+            static = instantiateVariableFont(
+                variable, coordinates, inplace=False, updateFontNames=False
+            )
+            if "STAT" in static:
+                del static["STAT"]
+            postscript_name = f"{font_config.family_name_compact}-{style}"
+            update_font_names(
+                font=static,
+                family_name=font_config.family_name,
+                style_name=style,
+                full_name=f"{font_config.family_name} {style}",
+                version_str=font_config.version_str,
+                postscript_name=postscript_name,
+                unique_identifier=get_unique_identifier(
+                    font_config=font_config, postscript_name=postscript_name
+                ),
+                is_skip_subfamily=True,
+                preferred_family_name=font_config.family_name,
+                preferred_style_name=style,
+            )
+            static.save(joinPaths(build_option.output_ttf, f"{postscript_name}.ttf"))
+            static.close()
+            variable.close()
 
 
 def build_base_fonts(
