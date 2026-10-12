@@ -33,11 +33,12 @@ on:
           - narrow
           - slim
       nerd_font:
-        description: 'Nerd Font icon mode: default("--nf"), mono("--nf-mono"), proportional("--nf-propo")'
+        description: 'Nerd Font icon mode: none("--no-nf"), default("--nf"), mono("--nf-mono"), proportional("--nf-propo")'
         required: false
         default: default
         type: choice
         options:
+          - none
           - default
           - mono
           - proportional
@@ -110,6 +111,9 @@ jobs:
             build_args="$build_args --width ${{ github.event.inputs.width }}"
           fi
           case "${{ github.event.inputs.nerd_font }}" in
+            none)
+              build_args="$build_args --no-nf"
+              ;;
             default)
               build_args="$build_args --nf"
               ;;
