@@ -82,6 +82,15 @@ def audit_font(font):
     return dict(kana=kana, private_use=private,
                 nonmark_ligatures=nonmark_ligatures, coding_features=active)
 
+def normalize_style_registration(font):
+    """Keep real outline weights separate from standard RIBBI matching weights."""
+    outline_weight = font["OS/2"].usWeightClass
+    if "meta" in font:
+        font["meta"].data["owgt"] = str(outline_weight).encode("ascii")
+    # CoreText otherwise treats 525 as nearer 'normal' than the light 300,
+    # and normal requests incorrectly resolve to the Bold face.
+    font["OS/2"].usWeightClass = 700 if font["head"].macStyle & 1 else 400
+
 def apply_chinese_only_profile(font):
     # The requested cv/ss05/ss06 shapes have already been frozen into outlines.
     # Keep normal accent/mark processing; remove letter/symbol ligatures.
@@ -117,4 +126,5 @@ def apply_chinese_only_profile(font):
     result = audit_font(font)
     assert result["private_use"] == 0, result
     assert result["nonmark_ligatures"] == 0 and not result["coding_features"], result
+    normalize_style_registration(font)
     print("CN/JP no-ligature profile:", result)

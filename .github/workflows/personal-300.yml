@@ -1,4 +1,4 @@
-name: Personal Maple Mono Narrow 300-525 Line 0.90
+name: Personal Maple Mono Narrow 300-525 Line 0.90 Style Fix
 
 on:
   workflow_dispatch:
@@ -71,7 +71,8 @@ jobs:
               style = p.stem.rsplit("-", 1)[-1]
               assert style in expected, str(p)
               with TTFont(p) as f:
-                  assert f["OS/2"].usWeightClass == expected[style], (str(p), f["OS/2"].usWeightClass)
+                  assert int(f["meta"].data["owgt"]) == expected[style], (str(p), f["meta"].data["owgt"])
+                  assert f["OS/2"].usWeightClass == (700 if style.startswith("Bold") else 400), (str(p), f["OS/2"].usWeightClass)
                   assert "fvar" not in f, str(p)
                   cmap = f.getBestCmap()
                   assert ord("中") in cmap, str(p)
@@ -105,7 +106,7 @@ jobs:
                       assert [g.cluster for g in buf.glyph_infos] == list(range(len(text))), (str(p), text)
                       assert all(pos.x_advance == 550 for pos in buf.glyph_positions), (str(p), text)
                   print("FINAL", p.name, result, "shaping checks passed")
-                  print(p.name, "weight", f["OS/2"].usWeightClass, "Latin width", aw, "Chinese width", cw)
+                  print(p.name, "outline weight", int(f["meta"].data["owgt"]), "system style weight", f["OS/2"].usWeightClass, "Latin width", aw, "Chinese width", cw)
           PY
       - name: Upload font archives
         uses: actions/upload-artifact@v4
@@ -129,5 +130,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          printf '%s\n' 'Narrow; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Regular/Italic 300; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; four linked TTF styles; Chinese/Latin width 1100/550.' > release-notes.txt
-          gh release create "personal-300-525-line090-${{ github.run_id }}" packages/*.* --title "Maple Mono CN — Narrow, 300 / 525, line 0.90" --notes-file release-notes.txt
+          printf '%s\n' 'Narrow; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Regular/Italic 300; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; standard Regular/Bold system registration 400/700 with physical outline weights 300/525; four linked TTF styles; Chinese/Latin width 1100/550.' > release-notes.txt
+          gh release create "personal-300-525-line090-stylefix-${{ github.run_id }}" packages/*.* --title "Maple Mono CN — Narrow, 300 / 525, line 0.90, fixed style matching" --notes-file release-notes.txt
