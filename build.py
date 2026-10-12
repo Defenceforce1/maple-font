@@ -1043,6 +1043,20 @@ def get_unique_identifier(
     return f"{font_config.version_str}{beta_str};SUBF;{postscript_name};2024;FL830;{suffix}"
 
 
+def set_linked_style_flags(font: TTFont, style: str):
+    """Keep Bold/Italic selection working even with lighter outlines."""
+    bold = style.startswith("Bold")
+    italic = style.endswith("Italic")
+    font["head"].macStyle = (font["head"].macStyle & ~3) | int(bold) | (int(italic) << 1)
+    mask = (1 << 0) | (1 << 5) | (1 << 6)
+    font["OS/2"].fsSelection = (
+        (font["OS/2"].fsSelection & ~mask)
+        | int(italic)
+        | (int(bold) << 5)
+        | (int(not bold and not italic) << 6)
+    )
+
+
 def build_mono(f: str, font_config: FontConfig, build_option: BuildOption):
     print(f"👉 Minimal version for {f}")
     source_path = joinPaths(build_option.output_ttf, f)
@@ -1333,12 +1347,15 @@ def build_cn(f: str, font_config: FontConfig, build_option: BuildOption):
 
     print(f"👉 {build_option.cn_suffix_compact} version for {f}")
 
-    # Match prebuilt Chinese outlines to the remapped Latin weight.
-    # Regular/Italic at 300 must use Light/LightItalic, not the 400 base.
+    # Match Chinese outlines to the actual remapped Latin weight.
     cn_style = style_compact_cn
     if font_config.weight_mapping["regular"] == 300:
         cn_style = {"Regular": "Light", "Italic": "LightItalic"}.get(
-            style_compact_cn, style_compact_cn
+            style_compact_cn, cn_style
+        )
+    if font_config.weight_mapping["bold"] == 600:
+        cn_style = {"Bold": "SemiBold", "BoldItalic": "SemiBoldItalic"}.get(
+            style_compact_cn, cn_style
         )
 
     cn_font = merge_ttfonts(
@@ -1379,6 +1396,9 @@ def build_cn(f: str, font_config: FontConfig, build_option: BuildOption):
         preferred_family_name=f"{font_config.family_name} {build_option.cn_suffix}",
         preferred_style_name=style_in_17,
     )
+
+    if style_compact_cn in ("Regular", "Italic", "Bold", "BoldItalic"):
+        set_linked_style_flags(cn_font, style_compact_cn)
 
     cn_font["OS/2"].xAvgCharWidth = font_config.get_target_width()  # type: ignore
 
@@ -1625,41 +1645,50 @@ def build_variable_fonts(font_config: FontConfig, build_option: BuildOption):
         f"ftcli converter var2static -out {build_option.output_ttf} {build_option.output_variable}"
     )
 
-    # Duplicate coordinates (Light and Regular at 300) can make ftcli export
-    # only Light-named files. Explicitly preserve the requested four-style names.
-    if font_config.weight_mapping["regular"] == 300:
+    # Remapped weights may coincide with Light/SemiBold and lose their
+    # Regular/Bold names in ftcli. Export the four linked styles explicitly.
+    if (
+        font_config.weight_mapping["regular"] != default_weight_map["regular"]
+        or font_config.weight_mapping["bold"] != default_weight_map["bold"]
+    ):
         for variable_file in listdir(build_option.output_variable):
             if not variable_file.endswith(".ttf"):
                 continue
             variable = TTFont(joinPaths(build_option.output_variable, variable_file))
             is_italic = "Italic" in variable_file
-            style = "Italic" if is_italic else "Regular"
-            coordinates = {
-                axis.axisTag: axis.defaultValue for axis in variable["fvar"].axes
-            }
-            coordinates["wght"] = 300
-            static = instantiateVariableFont(
-                variable, coordinates, inplace=False, updateFontNames=False
-            )
-            if "STAT" in static:
-                del static["STAT"]
-            postscript_name = f"{font_config.family_name_compact}-{style}"
-            update_font_names(
-                font=static,
-                family_name=font_config.family_name,
-                style_name=style,
-                full_name=f"{font_config.family_name} {style}",
-                version_str=font_config.version_str,
-                postscript_name=postscript_name,
-                unique_identifier=get_unique_identifier(
-                    font_config=font_config, postscript_name=postscript_name
-                ),
-                is_skip_subfamily=True,
-                preferred_family_name=font_config.family_name,
-                preferred_style_name=style,
-            )
-            static.save(joinPaths(build_option.output_ttf, f"{postscript_name}.ttf"))
-            static.close()
+            for weight_key in ("regular", "bold"):
+                style = (
+                    ("BoldItalic" if is_italic else "Bold")
+                    if weight_key == "bold"
+                    else ("Italic" if is_italic else "Regular")
+                )
+                coordinates = {
+                    axis.axisTag: axis.defaultValue for axis in variable["fvar"].axes
+                }
+                coordinates["wght"] = font_config.weight_mapping[weight_key]
+                static = instantiateVariableFont(
+                    variable, coordinates, inplace=False, updateFontNames=False
+                )
+                if "STAT" in static:
+                    del static["STAT"]
+                set_linked_style_flags(static, style)
+                postscript_name = f"{font_config.family_name_compact}-{style}"
+                update_font_names(
+                    font=static,
+                    family_name=font_config.family_name,
+                    style_name=style,
+                    full_name=f"{font_config.family_name} {style}",
+                    version_str=font_config.version_str,
+                    postscript_name=postscript_name,
+                    unique_identifier=get_unique_identifier(
+                        font_config=font_config, postscript_name=postscript_name
+                    ),
+                    is_skip_subfamily=True,
+                    preferred_family_name=font_config.family_name,
+                    preferred_style_name=style,
+                )
+                static.save(joinPaths(build_option.output_ttf, f"{postscript_name}.ttf"))
+                static.close()
             variable.close()
 
 

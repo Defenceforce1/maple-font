@@ -1,4 +1,4 @@
-name: Personal Maple Mono 300
+name: Personal Maple Mono 300-600 Narrow and Slim
 
 on:
   workflow_dispatch:
@@ -14,10 +14,15 @@ permissions:
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        width: [narrow, slim]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      BUILD_ARGS: --archive --cn --normal --no-liga --no-nf --no-hinted --width narrow --ttf-only --least-styles
+      FONT_WIDTH: ${{ matrix.width }}
+      BUILD_ARGS: --archive --cn --normal --no-liga --no-nf --no-hinted --width ${{ matrix.width }} --ttf-only --least-styles
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,17 +37,18 @@ jobs:
         run: |
           python build.py $BUILD_ARGS --dry > final-config.json
           python - <<'PY'
-          import json
+          import json, os
           c = json.load(open("final-config.json"))
           assert c["weight_mapping"]["regular"] == 300
+          assert c["weight_mapping"]["bold"] == 600
           assert c["enable_ligature"] is False
           assert c["nerd_font"]["enable"] is False
           assert c["cn"]["enable"] is True
           assert c["use_hinted"] is False
           assert c["cn"]["use_hinted"] is False
           assert c["cn"]["scale_factor"] == [1.0, 1.0]
-          assert c["width"] == "narrow"
-          print("Verified: Normal NL NR CN, regular 300, TTF only, four styles")
+          assert c["width"] == os.environ["FONT_WIDTH"]
+          print("Verified:", c["width"], "Regular/Italic 300, Bold/BoldItalic 600")
           PY
       - name: Build font
         run: python build.py $BUILD_ARGS
@@ -53,29 +59,46 @@ jobs:
           from fontTools.ttLib import TTFont
           files = list(Path("fonts/CN").glob("*.ttf"))
           assert len(files) == 4, [str(p) for p in files]
-          expected = {"Regular": 300, "Italic": 300, "Bold": 700, "BoldItalic": 700}
+          expected = {"Regular": 300, "Italic": 300, "Bold": 600, "BoldItalic": 600}
           for p in files:
               style = p.stem.rsplit("-", 1)[-1]
               assert style in expected, str(p)
               with TTFont(p) as f:
                   assert f["OS/2"].usWeightClass == expected[style], (str(p), f["OS/2"].usWeightClass)
-                  assert ord("中") in f.getBestCmap(), str(p)
                   assert "fvar" not in f, str(p)
                   cmap = f.getBestCmap()
-                  assert f["hmtx"].metrics[cmap[ord("中")]][0] == 2 * f["hmtx"].metrics[cmap[ord("A")]][0], str(p)
-                  print(p.name, "weight", f["OS/2"].usWeightClass)
+                  assert ord("中") in cmap, str(p)
+                  aw = f["hmtx"].metrics[cmap[ord("A")]][0]
+                  cw = f["hmtx"].metrics[cmap[ord("中")]][0]
+                  assert cw == 2 * aw, (str(p), aw, cw)
+                  bold, italic = style.startswith("Bold"), style.endswith("Italic")
+                  assert bool(f["OS/2"].fsSelection & 32) == bold, str(p)
+                  assert bool(f["OS/2"].fsSelection & 1) == italic, str(p)
+                  assert bool(f["head"].macStyle & 1) == bold, str(p)
+                  assert bool(f["head"].macStyle & 2) == italic, str(p)
+                  print(p.name, "weight", f["OS/2"].usWeightClass, "Latin width", aw, "Chinese width", cw)
           PY
       - name: Upload font archives
         uses: actions/upload-artifact@v4
         with:
-          name: Maple-Mono-Normal-NL-NR-CN-300
-          path: |
-            fonts/archive/*.zip
-            final-config.json
+          name: Maple-Mono-${{ matrix.width }}-300-600
+          path: fonts/archive/*-CN-unhinted.*
           if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download both font packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Maple-Mono-*-300-600
+          path: packages
+          merge-multiple: true
       - name: Create downloadable release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          printf '%s\n' 'Normal NL NR CN; unhinted; no Nerd Font icons; Regular/Italic weight 300; Bold/BoldItalic weight 700; --ttf-only --least-styles.' > release-notes.txt
-          gh release create "personal-300-${{ github.run_id }}" fonts/archive/*.* --title "Maple Mono Normal NL NR CN — Regular 300" --notes-file release-notes.txt
+          printf '%s\n' 'Narrow and Slim; Normal NL CN; unhinted; no Nerd Font icons; Regular/Italic 300; Bold/BoldItalic 600; --ttf-only --least-styles. Both packages contain four linked styles and maintain Chinese/Latin 2:1 width.' > release-notes.txt
+          gh release create "personal-300-600-${{ github.run_id }}" packages/*.* --title "Maple Mono CN — Narrow + Slim, 300 / 600" --notes-file release-notes.txt
