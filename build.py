@@ -12,6 +12,7 @@ from os import environ, getcwd, listdir, makedirs, path, remove, getenv
 from typing import Callable, Literal
 from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
+from source.py.personal_profile import apply_chinese_only_profile
 from fontTools.ttLib.tables._m_e_t_a import table__m_e_t_a
 from fontTools.feaLib.builder import addOpenTypeFeatures, addOpenTypeFeaturesFromString
 from ttfautohint import StemWidthMode, ttfautohint
@@ -507,6 +508,15 @@ class FontConfig:
 
         if args.line_height is not None:
             self.line_height = args.line_height
+
+        if not self.enable_ligature:
+            self.infinite_arrow = False
+            self.remove_tag_liga = True
+            for tag in (
+                "ss01", "ss02", "ss03", "ss04", "ss07", "ss08",
+                "ss09", "ss10", "ss11",
+            ):
+                self.feature_freeze[tag] = "disable"
 
         if "font_forge_bin" not in self.nerd_font:
             self.nerd_font["font_forge_bin"] = get_font_forge_bin()
@@ -1353,8 +1363,8 @@ def build_cn(f: str, font_config: FontConfig, build_option: BuildOption):
         cn_style = {"Regular": "Light", "Italic": "LightItalic"}.get(
             style_compact_cn, cn_style
         )
-    if font_config.weight_mapping["bold"] == 600:
-        cn_style = {"Bold": "SemiBold", "BoldItalic": "SemiBoldItalic"}.get(
+    if font_config.weight_mapping["bold"] == 500:
+        cn_style = {"Bold": "Medium", "BoldItalic": "MediumItalic"}.get(
             style_compact_cn, cn_style
         )
 
@@ -1486,6 +1496,8 @@ def build_cn(f: str, font_config: FontConfig, build_option: BuildOption):
         is_hinted=font_config.use_hinted,
         fea_path=build_option.get_feature_file_path(is_italic, True),
     )
+
+    apply_chinese_only_profile(cn_font)
 
     if not (
         (
@@ -1855,6 +1867,11 @@ def main(args: list[str] | None = None, version: str | None = None):
             if font_config.infinite_arrow is None
             else font_config.infinite_arrow,
             "weight_mapping": font_config.weight_mapping,
+            "personal_profile": {
+                "coding_ligatures": False,
+                "exclude_kana_hangul_private_use": True,
+                "retain_shared_han_latin_math": True,
+            },
             "feature_freeze": font_config.feature_freeze,
             "nerd_font": font_config.nerd_font,
             "cn": font_config.cn,
