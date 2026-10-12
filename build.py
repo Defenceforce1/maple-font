@@ -1332,10 +1332,18 @@ def build_cn(f: str, font_config: FontConfig, build_option: BuildOption):
 
     print(f"👉 {build_option.cn_suffix_compact} version for {f}")
 
+    # Match prebuilt Chinese outlines to the remapped Latin weight.
+    # Regular/Italic at 300 must use Light/LightItalic, not the 400 base.
+    cn_style = style_compact_cn
+    if font_config.weight_mapping["regular"] == 300:
+        cn_style = {"Regular": "Light", "Italic": "LightItalic"}.get(
+            style_compact_cn, style_compact_cn
+        )
+
     cn_font = merge_ttfonts(
         base_font_path=joinPaths(build_option.cn_base_font_dir, f),
         extra_font_path=joinPaths(
-            build_option.cn_static_dir, f"MapleMonoCN-{style_compact_cn}.ttf"
+            build_option.cn_static_dir, f"MapleMonoCN-{cn_style}.ttf"
         ),
         use_pyftmerge=True,
     )
