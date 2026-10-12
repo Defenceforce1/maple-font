@@ -1,4 +1,4 @@
-name: Personal Maple Mono Chinese-only Narrow 300-500
+name: Personal Maple Mono Narrow 300-525 Line 0.95
 
 on:
   workflow_dispatch:
@@ -36,20 +36,6 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install uharfbuzz
-      - name: Audit previous font binaries
-        run: |
-          curl --fail --location --retry 3 'https://github.com/Defenceforce1/maple-font/releases/download/personal-300-600-38297355391/MapleMonoNormalNLNR-CN-unhinted.zip' -o previous-fonts.zip
-          python - <<'PY'
-          from io import BytesIO
-          from zipfile import ZipFile
-          from fontTools.ttLib import TTFont
-          from source.py.personal_profile import audit_font
-          with ZipFile("previous-fonts.zip") as z:
-              for name in sorted(z.namelist()):
-                  if name.endswith(".ttf"):
-                      with TTFont(BytesIO(z.read(name))) as f:
-                          print("PREVIOUS", name, audit_font(f))
-          PY
       - name: Check final configuration
         run: |
           python build.py $BUILD_ARGS --dry > final-config.json
@@ -57,7 +43,7 @@ jobs:
           import json, os
           c = json.load(open("final-config.json"))
           assert c["weight_mapping"]["regular"] == 300
-          assert c["weight_mapping"]["bold"] == 500
+          assert c["weight_mapping"]["bold"] == 525
           assert c["infinite_arrow"] is False
           assert c["remove_tag_liga"] is True
           assert c["cn"]["with_nerd_font"] is False
@@ -68,7 +54,8 @@ jobs:
           assert c["cn"]["use_hinted"] is False
           assert c["cn"]["scale_factor"] == [1.0, 1.0]
           assert c["width"] == os.environ["FONT_WIDTH"]
-          print("Verified:", c["width"], "Regular/Italic 300, Bold/BoldItalic 500")
+          assert c["line_height"] == 0.95
+          print("Verified:", c["width"], "Regular/Italic 300, Bold/BoldItalic 525")
           PY
       - name: Build font
         run: python build.py $BUILD_ARGS
@@ -79,7 +66,7 @@ jobs:
           from fontTools.ttLib import TTFont
           files = list(Path("fonts/CN").glob("*.ttf"))
           assert len(files) == 4, [str(p) for p in files]
-          expected = {"Regular": 300, "Italic": 300, "Bold": 500, "BoldItalic": 500}
+          expected = {"Regular": 300, "Italic": 300, "Bold": 525, "BoldItalic": 525}
           for p in files:
               style = p.stem.rsplit("-", 1)[-1]
               assert style in expected, str(p)
@@ -99,12 +86,14 @@ jobs:
                   from source.py.personal_profile import audit_font, excluded_codepoint
                   import uharfbuzz as hb
                   result = audit_font(f)
-                  assert result["kana"] == result["private_use"] == result["nonmark_ligatures"] == 0, result
+                  assert result["private_use"] == result["nonmark_ligatures"] == 0
+                  assert result["kana"] > 0, result
                   assert not result["coding_features"], result
                   assert not any(excluded_codepoint(cp) for cp in cmap), str(p)
                   assert aw == 550 and cw == 1100, (str(p), aw, cw)
                   assert f["post"].isFixedPitch, str(p)
-                  assert "Jpan" not in str(f["meta"].data), str(p)
+                  assert "Jpan" in str(f["meta"].data)
+                  assert f["hhea"].ascent == 969 and f["hhea"].descent == -285, (str(p), f["hhea"].ascent, f["hhea"].descent)
                   hbfont = hb.Font(hb.Face(p.read_bytes()))
                   hbfont.scale = (f["head"].unitsPerEm, f["head"].unitsPerEm)
                   for text in ("-> <-- ==> == === != !== <= >= >>= ffi fi fl", "[TODO] [INFO] __ \\\\"):
@@ -121,7 +110,7 @@ jobs:
       - name: Upload font archives
         uses: actions/upload-artifact@v4
         with:
-          name: Maple-Mono-${{ matrix.width }}-300-500
+          name: Maple-Mono-${{ matrix.width }}-300-525
           path: fonts/archive/*-CN-unhinted.*
           if-no-files-found: error
 
@@ -132,7 +121,7 @@ jobs:
       - name: Download Narrow font package
         uses: actions/download-artifact@v4
         with:
-          pattern: Maple-Mono-*-300-500
+          pattern: Maple-Mono-*-300-525
           path: packages
           merge-multiple: true
       - name: Create downloadable release
@@ -140,5 +129,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          printf '%s\n' 'Narrow; Normal NL CN; no programming ligature features; no kana, Hangul or private-use icons; Latin, mathematical symbols, simplified/traditional Chinese and shared Han retained; unhinted; Regular/Italic 300; Bold/BoldItalic 500; four linked TTF styles; Chinese/Latin width 1100/550. Normal accent and mark composition retained.' > release-notes.txt
-          gh release create "personal-300-500-${{ github.run_id }}" packages/*.* --title "Maple Mono CN — Chinese-only Narrow, 300 / 500" --notes-file release-notes.txt
+          printf '%s\n' 'Narrow; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Regular/Italic 300; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.95; four linked TTF styles; Chinese/Latin width 1100/550.' > release-notes.txt
+          gh release create "personal-300-525-${{ github.run_id }}" packages/*.* --title "Maple Mono CN — Narrow, 300 / 525, line 0.95" --notes-file release-notes.txt

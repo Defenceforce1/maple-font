@@ -1,4 +1,4 @@
-"""Personal Chinese/Latin profile: no coding ligatures or Japanese/Nerd glyphs."""
+"""Personal CN/JP profile: no coding ligatures or private-use icons."""
 import unicodedata
 from fontTools.subset import Options, Subsetter
 
@@ -8,23 +8,12 @@ CODING_FEATURES = {
 }
 
 def excluded_codepoint(cp):
-    if (
-        0x3040 <= cp <= 0x30FF
-        or 0x31F0 <= cp <= 0x31FF
-        or 0x3190 <= cp <= 0x319F
-        or 0x1AFF0 <= cp <= 0x1AFFF
-        or 0x1B000 <= cp <= 0x1B16F
-        or 0xFF65 <= cp <= 0xFF9F
-        or 0x3031 <= cp <= 0x3035
-        or cp == 0x303B
-        or 0xE000 <= cp <= 0xF8FF
+    return (
+        0xE000 <= cp <= 0xF8FF
         or 0xF0000 <= cp <= 0xFFFFD
         or 0x100000 <= cp <= 0x10FFFD
         or 0xFB00 <= cp <= 0xFB06
-    ):
-        return True
-    name = unicodedata.name(chr(cp), "")
-    return any(term in name for term in ("HIRAGANA", "KATAKANA", "HANGUL"))
+    )
 
 def ligature_subtables(font):
     if "GSUB" not in font:
@@ -102,20 +91,6 @@ def apply_chinese_only_profile(font):
             for first, ligs in sub.ligatures.items()
         }
         sub.ligatures = {first: ligs for first, ligs in sub.ligatures.items() if ligs}
-    for tag in ("GSUB", "GPOS"):
-        if tag not in font or not font[tag].table.ScriptList:
-            continue
-        scripts = font[tag].table.ScriptList
-        scripts.ScriptRecord = [
-            rec for rec in scripts.ScriptRecord if rec.ScriptTag not in ("kana", "hang")
-        ]
-        scripts.ScriptCount = len(scripts.ScriptRecord)
-        for rec in scripts.ScriptRecord:
-            rec.Script.LangSysRecord = [
-                lang for lang in rec.Script.LangSysRecord
-                if lang.LangSysTag.strip() not in ("JAN", "KOR")
-            ]
-            rec.Script.LangSysCount = len(rec.Script.LangSysRecord)
     opts = Options()
     opts.glyph_names = True
     opts.no_subset_tables += ["meta"]
@@ -135,13 +110,11 @@ def apply_chinese_only_profile(font):
     subset.subset(font)
     if "meta" in font:
         for key in ("dlng", "slng"):
-            font["meta"].data[key] = "Latn, Hans, Hant"
-    if "OS/2" in font:
-        font["OS/2"].ulCodePageRange1 &= ~((1 << 17) | (1 << 19) | (1 << 21))
+            font["meta"].data[key] = "Latn, Hans, Hant, Jpan"
     # Keep the 550-unit Latin metric, because recalculation over many CJK
     # glyphs would otherwise change the family metric.
     font["OS/2"].xAvgCharWidth = 550
     result = audit_font(font)
-    assert result["kana"] == 0 and result["private_use"] == 0, result
+    assert result["private_use"] == 0, result
     assert result["nonmark_ligatures"] == 0 and not result["coding_features"], result
-    print("Chinese-only profile:", result)
+    print("CN/JP no-ligature profile:", result)

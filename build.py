@@ -1363,8 +1363,8 @@ def build_cn(f: str, font_config: FontConfig, build_option: BuildOption):
         cn_style = {"Regular": "Light", "Italic": "LightItalic"}.get(
             style_compact_cn, cn_style
         )
-    if font_config.weight_mapping["bold"] == 500:
-        cn_style = {"Bold": "Medium", "BoldItalic": "MediumItalic"}.get(
+    if font_config.weight_mapping["bold"] == 525:
+        cn_style = {"Bold": "Custom525", "BoldItalic": "Custom525Italic"}.get(
             style_compact_cn, cn_style
         )
 
@@ -1621,7 +1621,7 @@ def build_variable_fonts(font_config: FontConfig, build_option: BuildOption):
         patch_instance(font, font_config.weight_mapping)
 
         if font_config.line_height != 1:
-            calculated_metric = (font["hhea"].ascender, font["hhea"].descender)  # type: ignore
+            calculated_metric = (font["hhea"].ascent, font["hhea"].descent)  # type: ignore
             if calculated_metric != font_config.vertical_metric:
                 font_config.vertical_metric = calculated_metric
 
@@ -1764,12 +1764,55 @@ def build_nerd_fonts(
     build_option.is_nf_built = True
 
 
+def prepare_cn_weight_525(build_option: BuildOption):
+    """Instantiate genuine Chinese 525 outlines from the official variable base."""
+    from fontTools.pens.recordingPen import RecordingPen
+    if not download_cn_base_font(
+        tag="cn-base", zip_path="cn-base-variable.zip",
+        target_dir=build_option.cn_variable_dir,
+    ):
+        raise RuntimeError("Could not download official CN variable base")
+    sources = [
+        ("MapleMono-CN-VF.ttf", "Custom525"),
+        ("MapleMono-CN-Italic-VF.ttf", "Custom525Italic"),
+    ]
+    for source, style in sources:
+        variable = TTFont(joinPaths(build_option.cn_variable_dir, source))
+        axes = {axis.axisTag: axis for axis in variable["fvar"].axes}
+        assert axes["wght"].minValue <= 525 <= axes["wght"].maxValue
+        glyph_name = variable.getBestCmap()[ord("中")]
+        pen500, pen525 = RecordingPen(), RecordingPen()
+        variable.getGlyphSet(location={"wght": 500})[glyph_name].draw(pen500)
+        variable.getGlyphSet(location={"wght": 525})[glyph_name].draw(pen525)
+        assert pen500.value != pen525.value, "CN interpolation did not change outlines"
+        coordinates = {tag: axis.defaultValue for tag, axis in axes.items()}
+        coordinates["wght"] = 525
+        print("Instantiate Chinese", source, "at real wght=525", flush=True)
+        for tag in ("kern", "GPOS"):
+            if tag in variable:
+                del variable[tag]
+        static = instantiateVariableFont(
+            variable, coordinates, inplace=False, updateFontNames=False
+        )
+        assert "fvar" not in static and static["OS/2"].usWeightClass == 525
+        if "STAT" in static:
+            del static["STAT"]
+        target = joinPaths(build_option.cn_static_dir, f"MapleMonoCN-{style}.ttf")
+        static.save(target)
+        static.close()
+        variable.close()
+        print("Verified genuine Chinese 525 outlines:", target, flush=True)
+
+
 def build_chinese_fonts(
     font_config: FontConfig, build_option: BuildOption, target_styles: list[str] | None
 ):
     """Build Chinese font variants."""
     if not build_option.should_build_cn(font_config):
         return
+
+    if font_config.weight_mapping["bold"] == 525:
+        prepare_cn_weight_525(build_option)
 
     def _build_cn(with_nf: bool = False):
         print(f"\n🔎 Build CN fonts {'with Nerd-Font' if with_nf else ''}...\n")
@@ -1869,7 +1912,8 @@ def main(args: list[str] | None = None, version: str | None = None):
             "weight_mapping": font_config.weight_mapping,
             "personal_profile": {
                 "coding_ligatures": False,
-                "exclude_kana_hangul_private_use": True,
+                "exclude_private_use_icons": True,
+                "retain_japanese_and_other_standard_characters": True,
                 "retain_shared_han_latin_math": True,
             },
             "feature_freeze": font_config.feature_freeze,

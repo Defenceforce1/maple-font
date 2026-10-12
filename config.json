@@ -14,10 +14,10 @@
     "regular": 300,
     "medium": 500,
     "semibold": 600,
-    "bold": 500,
+    "bold": 525,
     "extrabold": 800
   },
-  "line_height": 1,
+  "line_height": 0.95,
   "width": "narrow",
   "feature_freeze": {
     "cv01": "enable",
