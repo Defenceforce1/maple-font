@@ -126,5 +126,7 @@ def apply_chinese_only_profile(font):
     result = audit_font(font)
     assert result["private_use"] == 0, result
     assert result["nonmark_ligatures"] == 0 and not result["coding_features"], result
+    from source.py.ink_width import widen_ink
+    widen_ink(font)
     normalize_style_registration(font)
     print("CN/JP no-ligature profile:", result)

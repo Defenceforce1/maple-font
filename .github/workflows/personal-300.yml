@@ -1,4 +1,4 @@
-name: Personal Maple Mono Narrow and Standard 350-525 Line 0.90
+name: Personal Maple Mono Compact Ink 350-525 Line 0.90
 
 on:
   workflow_dispatch:
@@ -9,6 +9,7 @@ on:
       - config.json
       - build.py
       - source/py/personal_profile.py
+      - source/py/ink_width.py
 
 permissions:
   contents: write
@@ -18,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        width: [narrow, default]
+        width: [narrow]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -62,7 +63,7 @@ jobs:
       - name: Verify generated Chinese fonts
         run: |
           python - <<'PY'
-          import os
+          import os, json
           from pathlib import Path
           from fontTools.ttLib import TTFont
           files = list(Path("fonts/CN").glob("*.ttf"))
@@ -95,6 +96,17 @@ jobs:
                   expected_aw = {"narrow": 550, "default": 600}[os.environ["FONT_WIDTH"]]
                   assert aw == expected_aw and cw == 2 * expected_aw, (str(p), aw, cw)
                   assert f["post"].isFixedPitch, str(p)
+                  assert float(f["meta"].data["hxsc"]) == 1.05
+                  samples = json.loads(f["meta"].data["hbud"])
+                  for cp, snapshot in samples.items():
+                      g = f["glyf"][cmap[int(cp)]]
+                      assert g.xMax - g.xMin == snapshot["after"]
+                      assert f["hmtx"].metrics[cmap[int(cp)]][0] == snapshot["advance"]
+                      assert snapshot["after"] >= snapshot["before"]
+                  if not italic:
+                      for cp in map(ord, "H0中"):
+                          assert samples[str(cp)]["after"] > samples[str(cp)]["before"]
+                  print("INK WIDTH VERIFIED", samples)
                   assert "Jpan" in str(f["meta"].data)
                   assert f["hhea"].ascent == 918 and f["hhea"].descent == -270, (str(p), f["hhea"].ascent, f["hhea"].descent)
                   hbfont = hb.Font(hb.Face(p.read_bytes()))
@@ -107,6 +119,12 @@ jobs:
                       assert len(buf.glyph_infos) == len(text), (str(p), text)
                       assert [g.cluster for g in buf.glyph_infos] == list(range(len(text))), (str(p), text)
                       assert all(pos.x_advance == aw for pos in buf.glyph_positions), (str(p), text)
+                  for text in ("A\\u0301", "e\\u0301", "a\\u0308"):
+                      buf = hb.Buffer()
+                      buf.add_str(text)
+                      buf.guess_segment_properties()
+                      hb.shape(hbfont, buf)
+                      assert sum(pos.x_advance for pos in buf.glyph_positions) == aw, (str(p), text)
                   print("FINAL", p.name, result, "shaping checks passed")
                   print(p.name, "outline weight", int(f["meta"].data["owgt"]), "system style weight", f["OS/2"].usWeightClass, "Latin width", aw, "Chinese width", cw)
           PY
@@ -132,5 +150,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          printf '%s\n' 'Narrow and Standard Width; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Regular/Italic 350; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; standard Regular/Bold system registration 400/700 with physical outline weights 350/525; four linked TTF styles; Chinese/Latin widths: Narrow 1100/550, Standard 1200/600.' > release-notes.txt
-          gh release create "personal-350-525-line090-stylefix-${{ github.run_id }}" packages/*.* --title "Maple Mono CN — Narrow and Standard, 350 / 525, line 0.90, fixed style matching" --notes-file release-notes.txt
+          printf '%s\n' 'Compact ink profile; up to 5 percent horizontal ink expansion inside unchanged Narrow cells; existing overhangs and box drawing preserved; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Regular/Italic 350; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; standard Regular/Bold system registration 400/700 with physical outline weights 350/525; four linked TTF styles; Chinese/Latin widths 1100/550.' > release-notes.txt
+          gh release create "personal-compact-350-525-line090-${{ github.run_id }}" packages/*.* --title "Maple Mono Compact CN — wider ink, Narrow cells, 350 / 525, line 0.90, fixed style matching" --notes-file release-notes.txt

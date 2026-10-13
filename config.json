@@ -1,5 +1,5 @@
 {
-  "family_name": "Maple Mono",
+  "family_name": "Maple Mono Compact",
   "use_hinted": false,
   "pool_size": 4,
   "enable_ligature": false,
@@ -18,7 +18,7 @@
     "extrabold": 800
   },
   "line_height": 0.90,
-  "width": "default",
+  "width": "narrow",
   "feature_freeze": {
     "cv01": "enable",
     "cv02": "enable",
