@@ -1,4 +1,4 @@
-name: Personal Maple Mono Compact Ink 350-525 Line 0.90
+name: Personal Maple Mono Compact Latin 350 Chinese 300 Bold 525
 
 on:
   workflow_dispatch:
@@ -45,6 +45,9 @@ jobs:
           c = json.load(open("final-config.json"))
           assert c["weight_mapping"]["regular"] == 350
           assert c["weight_mapping"]["bold"] == 525
+          assert c["cn"]["weight_mapping"] == {"regular": 300, "bold": 525}
+          assert c["cn"]["latin_ink_scale"] == 1.05
+          assert c["cn"]["ink_scale"] == 1.03
           assert c["infinite_arrow"] is False
           assert c["remove_tag_liga"] is True
           assert c["cn"]["with_nerd_font"] is False
@@ -74,6 +77,8 @@ jobs:
               assert style in expected, str(p)
               with TTFont(p) as f:
                   assert int(f["meta"].data["owgt"]) == expected[style], (str(p), f["meta"].data["owgt"])
+                  assert int(f["meta"].data["lwgt"]) == expected[style]
+                  assert int(f["meta"].data["cwgt"]) == (525 if style.startswith("Bold") else 300)
                   assert f["OS/2"].usWeightClass == (700 if style.startswith("Bold") else 400), (str(p), f["OS/2"].usWeightClass)
                   assert "fvar" not in f, str(p)
                   cmap = f.getBestCmap()
@@ -97,6 +102,8 @@ jobs:
                   assert aw == expected_aw and cw == 2 * expected_aw, (str(p), aw, cw)
                   assert f["post"].isFixedPitch, str(p)
                   assert float(f["meta"].data["hxsc"]) == 1.05
+                  assert float(f["meta"].data["lxsc"]) == 1.05
+                  assert float(f["meta"].data["cxsc"]) == 1.03
                   samples = json.loads(f["meta"].data["hbud"])
                   for cp, snapshot in samples.items():
                       g = f["glyf"][cmap[int(cp)]]
@@ -106,6 +113,8 @@ jobs:
                   if not italic:
                       for cp in map(ord, "H0中"):
                           assert samples[str(cp)]["after"] > samples[str(cp)]["before"]
+                  assert samples[str(ord("中"))]["factor"] == 1.03
+                  assert samples[str(ord("H"))]["factor"] <= 1.05
                   print("INK WIDTH VERIFIED", samples)
                   assert "Jpan" in str(f["meta"].data)
                   assert f["hhea"].ascent == 918 and f["hhea"].descent == -270, (str(p), f["hhea"].ascent, f["hhea"].descent)
@@ -125,6 +134,7 @@ jobs:
                       buf.guess_segment_properties()
                       hb.shape(hbfont, buf)
                       assert sum(pos.x_advance for pos in buf.glyph_positions) == aw, (str(p), text)
+                  print("MIXED WEIGHTS", p.name, "Latin", int(f["meta"].data["lwgt"]), "Chinese/Japanese", int(f["meta"].data["cwgt"]))
                   print("FINAL", p.name, result, "shaping checks passed")
                   print(p.name, "outline weight", int(f["meta"].data["owgt"]), "system style weight", f["OS/2"].usWeightClass, "Latin width", aw, "Chinese width", cw)
           PY
@@ -150,5 +160,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          printf '%s\n' 'Compact ink profile; up to 5 percent horizontal ink expansion inside unchanged Narrow cells; existing overhangs and box drawing preserved; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Regular/Italic 350; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; standard Regular/Bold system registration 400/700 with physical outline weights 350/525; four linked TTF styles; Chinese/Latin widths 1100/550.' > release-notes.txt
-          gh release create "personal-compact-350-525-line090-${{ github.run_id }}" packages/*.* --title "Maple Mono Compact CN — wider ink, Narrow cells, 350 / 525, line 0.90, fixed style matching" --notes-file release-notes.txt
+          printf '%s\n' 'Compact ink profile; independent ink expansion: Latin up to 5 percent and Chinese/Japanese up to 3 percent inside unchanged Narrow cells; existing overhangs and box drawing preserved; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Latin Regular/Italic 350 and Chinese/Japanese Regular/Italic 300; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; standard Regular/Bold system registration 400/700 with source outline weights Latin 350/525, Chinese/Japanese 300/525; four linked TTF styles; Chinese/Latin widths 1100/550.' > release-notes.txt
+          gh release create "personal-compact-l350-c300-b525-x105-103-line090-${{ github.run_id }}" packages/*.* --title "Maple Mono Compact CN — Latin 350 +5%, Chinese 300 +3%, Bold 525, line 0.90, fixed style matching" --notes-file release-notes.txt

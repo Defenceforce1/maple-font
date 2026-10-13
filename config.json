@@ -1,5 +1,5 @@
 {
-  "family_name": "Maple Mono Compact",
+  "family_name": "Maple Mono Compact C300",
   "use_hinted": false,
   "pool_size": 4,
   "enable_ligature": false,
@@ -80,6 +80,12 @@
     "extra_args": []
   },
   "cn": {
+    "latin_ink_scale": 1.05,
+    "ink_scale": 1.03,
+    "weight_mapping": {
+      "regular": 300,
+      "bold": 525
+    },
     "enable": true,
     "with_nerd_font": false,
     "fix_meta_table": true,

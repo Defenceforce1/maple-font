@@ -1357,26 +1357,29 @@ def build_cn(f: str, font_config: FontConfig, build_option: BuildOption):
 
     print(f"👉 {build_option.cn_suffix_compact} version for {f}")
 
-    # Match Chinese outlines to the actual remapped Latin weight.
-    cn_style = style_compact_cn
-    if font_config.weight_mapping["regular"] == 300:
-        cn_style = {"Regular": "Light", "Italic": "LightItalic"}.get(
-            style_compact_cn, cn_style
+    # CN weights can be selected independently of the Latin outline weights.
+    weight_key = "bold" if style_compact_cn.startswith("Bold") else "regular"
+    cn_weight = font_config.cn.get("weight_mapping", {}).get(
+        weight_key, font_config.weight_mapping[weight_key]
+    )
+    italic_suffix = "Italic" if style_compact_cn.endswith("Italic") else ""
+    if cn_weight == 300:
+        cn_style = f"Light{italic_suffix}"
+    elif cn_weight == default_weight_map[weight_key]:
+        cn_style = style_compact_cn
+    else:
+        cn_style = f"Custom{cn_weight}{italic_suffix}"
+    cn_source_path = joinPaths(
+        build_option.cn_static_dir, f"MapleMonoCN-{cn_style}.ttf"
+    )
+    with TTFont(cn_source_path) as cn_source:
+        assert cn_source["OS/2"].usWeightClass == cn_weight, (
+            cn_source_path, cn_source["OS/2"].usWeightClass, cn_weight
         )
-    if font_config.weight_mapping["regular"] == 350:
-        cn_style = {"Regular": "Custom350", "Italic": "Custom350Italic"}.get(
-            style_compact_cn, cn_style
-        )
-    if font_config.weight_mapping["bold"] == 525:
-        cn_style = {"Bold": "Custom525", "BoldItalic": "Custom525Italic"}.get(
-            style_compact_cn, cn_style
-        )
-
+    print("CN outline source:", cn_source_path, "actual weight", cn_weight)
     cn_font = merge_ttfonts(
         base_font_path=joinPaths(build_option.cn_base_font_dir, f),
-        extra_font_path=joinPaths(
-            build_option.cn_static_dir, f"MapleMonoCN-{cn_style}.ttf"
-        ),
+        extra_font_path=cn_source_path,
         use_pyftmerge=True,
     )
 
@@ -1501,7 +1504,15 @@ def build_cn(f: str, font_config: FontConfig, build_option: BuildOption):
         fea_path=build_option.get_feature_file_path(is_italic, True),
     )
 
-    apply_chinese_only_profile(cn_font)
+    cn_font["meta"].data["cwgt"] = str(cn_weight).encode("ascii")
+    cn_font["meta"].data["lwgt"] = str(
+        font_config.weight_mapping[weight_key]
+    ).encode("ascii")
+    apply_chinese_only_profile(
+        cn_font,
+        latin_ink_scale=font_config.cn.get("latin_ink_scale", 1.05),
+        cn_ink_scale=font_config.cn.get("ink_scale", 1.05),
+    )
 
     if not (
         (
@@ -1785,7 +1796,9 @@ def prepare_cn_custom_weights(build_option: BuildOption, weights):
         glyph_name = variable.getBestCmap()[ord("中")]
         for weight in weights:
             assert axes["wght"].minValue <= weight <= axes["wght"].maxValue
-            base_weight = 300 if weight == 350 else 500
+            base_weight = axes["wght"].minValue
+            if weight == base_weight:
+                base_weight = axes["wght"].maxValue
             baseline, requested = RecordingPen(), RecordingPen()
             variable.getGlyphSet(location={"wght": base_weight})[glyph_name].draw(baseline)
             variable.getGlyphSet(location={"wght": weight})[glyph_name].draw(requested)
@@ -1818,11 +1831,16 @@ def build_chinese_fonts(
     if not build_option.should_build_cn(font_config):
         return
 
-    custom_weights = []
-    if font_config.weight_mapping["regular"] == 350:
-        custom_weights.append(350)
-    if font_config.weight_mapping["bold"] == 525:
-        custom_weights.append(525)
+    cn_weights = {
+        key: font_config.cn.get("weight_mapping", {}).get(
+            key, font_config.weight_mapping[key]
+        )
+        for key in ("regular", "bold")
+    }
+    custom_weights = sorted({
+        weight for key, weight in cn_weights.items()
+        if weight not in (300, default_weight_map[key])
+    })
     if custom_weights:
         prepare_cn_custom_weights(build_option, custom_weights)
 

@@ -1,5 +1,6 @@
 """Widen ink inside fixed monospaced cells without changing advances."""
 import json
+import unicodedata
 from copy import deepcopy
 from fontTools.misc.fixedTools import otRound
 from fontTools.ttLib.tables._g_l_y_f import Glyph, GlyphCoordinates
@@ -7,10 +8,16 @@ from fontTools.ttLib.tables.ttProgram import Program
 
 FACTOR = 1.05
 
-def widen_ink(font):
+def widen_ink(font, latin_scale=FACTOR, cn_scale=FACTOR):
     assert "glyf" in font and "fvar" not in font
     glyf, metrics = font["glyf"], font["hmtx"].metrics
     cmap = font.getBestCmap()
+    latin_advance = metrics[cmap[ord("A")]][0]
+    cn_names = {
+        glyph for cp, glyph in cmap.items()
+        if unicodedata.east_asian_width(chr(cp)) in ("W", "F")
+    }
+    assert 1.0 <= latin_scale <= 1.15 and 1.0 <= cn_scale <= 1.15
     protected = {
         glyph for cp, glyph in cmap.items()
         if 0x2500 <= cp <= 0x259F or 0x2800 <= cp <= 0x28FF
@@ -24,7 +31,8 @@ def widen_ink(font):
         advance, old_lsb = metrics[name]
         coords, ends, flags = glyph.getCoordinates(glyf)
         points = list(coords)
-        scale = FACTOR
+        requested_scale = cn_scale if advance >= 2 * latin_advance or name in cn_names else latin_scale
+        scale = requested_scale
         if name in protected:
             scale = 1.0
         elif advance and points:
@@ -65,7 +73,7 @@ def widen_ink(font):
                 }
         if scale > 1:
             expanded += 1
-        if scale < FACTOR:
+        if scale < requested_scale:
             limited += 1
     # Decomposition prevents applying a transform twice to composite references.
     glyf.glyphs = replacements
@@ -115,6 +123,8 @@ def widen_ink(font):
                 for value in record.CaretValue:
                     if hasattr(value, "Coordinate"):
                         value.Coordinate = otRound(scale * value.Coordinate + shift)
-    font["meta"].data["hxsc"] = str(FACTOR).encode("ascii")
+    font["meta"].data["hxsc"] = str(max(latin_scale, cn_scale)).encode("ascii")
+    font["meta"].data["lxsc"] = str(latin_scale).encode("ascii")
+    font["meta"].data["cxsc"] = str(cn_scale).encode("ascii")
     font["meta"].data["hbud"] = json.dumps(snapshots, sort_keys=True).encode("ascii")
     print("Widen ink, advances preserved:", "expanded", expanded, "limited/protected", limited, snapshots)

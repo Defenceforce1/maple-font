@@ -91,7 +91,7 @@ def normalize_style_registration(font):
     # and normal requests incorrectly resolve to the Bold face.
     font["OS/2"].usWeightClass = 700 if font["head"].macStyle & 1 else 400
 
-def apply_chinese_only_profile(font):
+def apply_chinese_only_profile(font, latin_ink_scale=1.05, cn_ink_scale=1.05):
     # The requested cv/ss05/ss06 shapes have already been frozen into outlines.
     # Keep normal accent/mark processing; remove letter/symbol ligatures.
     for sub in ligature_subtables(font):
@@ -127,6 +127,6 @@ def apply_chinese_only_profile(font):
     assert result["private_use"] == 0, result
     assert result["nonmark_ligatures"] == 0 and not result["coding_features"], result
     from source.py.ink_width import widen_ink
-    widen_ink(font)
+    widen_ink(font, latin_scale=latin_ink_scale, cn_scale=cn_ink_scale)
     normalize_style_registration(font)
     print("CN/JP no-ligature profile:", result)

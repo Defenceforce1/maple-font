@@ -27,7 +27,7 @@
       "enumDescriptions": [
         "If active, stem widths and blue zones are snapped and positioned to integer pixel values as much as possible. This gives high contrast, but glyph shape distortion can be significant.",
         "Both stem widths and blue zone positions are slightly quantized to take discrete values. For example, stem values 50, 51, 72, 76, and 100 would become 50, 74, and 100 (or something similar). More glyph shape distortion but increased contrast.",
-        "No adjustments to stem widths, discrete blue zone positioning. This is what FreeType uses for its \u2018light\u2019 (auto-)hinting mode. Essentially no glyph shape distortion, low contrast."
+        "No adjustments to stem widths, discrete blue zone positioning. This is what FreeType uses for its ‘light’ (auto-)hinting mode. Essentially no glyph shape distortion, low contrast."
       ]
     }
   },
@@ -123,7 +123,7 @@
     "line_height": {
       "type": "number",
       "description": "Scale factor for line height. (e.g. 1.1)",
-      "default": 1.0
+      "default": 1
     },
     "width": {
       "type": "string",
@@ -169,11 +169,11 @@
               "$ref": "#/definitions/stem_width_mode"
             },
             "gdi_cleartype": {
-              "description": "\u2018GDI ClearType\u2019 rendering: the rasterizer version, as returned by the GETINFO bytecode instruction, is in the range 36 <= version <= 38 and ClearType is enabled (e.g., Windows XP).",
+              "description": "‘GDI ClearType’ rendering: the rasterizer version, as returned by the GETINFO bytecode instruction, is in the range 36 <= version <= 38 and ClearType is enabled (e.g., Windows XP).",
               "$ref": "#/definitions/stem_width_mode"
             },
             "dw_cleartype": {
-              "description": "\u2018DirectWrite ClearType\u2019 rendering: the rasterizer version, as returned by the GETINFO bytecode instruction, is >= 39, ClearType is enabled, and subpixel positioning is enabled also (e.g., Internet Explorer 9 running on Windows 7).",
+              "description": "‘DirectWrite ClearType’ rendering: the rasterizer version, as returned by the GETINFO bytecode instruction, is >= 39, ClearType is enabled, and subpixel positioning is enabled also (e.g., Internet Explorer 9 running on Windows 7).",
               "$ref": "#/definitions/stem_width_mode"
             }
           }
@@ -309,15 +309,15 @@
           "$ref": "#/definitions/freeze_options"
         },
         "cv96": {
-          "description": "[v7.0] Full width quotes ('\u201c' / '\u201d' / '\u2018' / '\u2019')",
+          "description": "[v7.0] Full width quotes ('“' / '”' / '‘' / '’')",
           "$ref": "#/definitions/freeze_options"
         },
         "cv97": {
-          "description": "[v7.0] Full width ellipsis ('\u2026')",
+          "description": "[v7.0] Full width ellipsis ('…')",
           "$ref": "#/definitions/freeze_options"
         },
         "cv98": {
-          "description": "[v7.0] Full width emdash ('\u2014')",
+          "description": "[v7.0] Full width emdash ('—')",
           "$ref": "#/definitions/freeze_options"
         },
         "cv99": {
@@ -485,7 +485,40 @@
             "array"
           ],
           "description": "Scale factor for CN / JP glyphs with <factor> or [<width_factor>,<height_factor>](e.g. 1.1 or [1.2, 1.1])",
-          "default": 1.0
+          "default": 1
+        },
+        "weight_mapping": {
+          "type": "object",
+          "description": "Personal build extension: Chinese/Japanese outline weights independent of Latin weights. Unspecified styles inherit weight_mapping.",
+          "properties": {
+            "regular": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 800,
+              "description": "Chinese Regular/Italic outline weight"
+            },
+            "bold": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 800,
+              "description": "Chinese Bold/BoldItalic outline weight"
+            }
+          },
+          "additionalProperties": false
+        },
+        "latin_ink_scale": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1.15,
+          "default": 1.05,
+          "description": "Personal build extension: maximum horizontal Latin ink expansion inside unchanged cells in the merged CN font."
+        },
+        "ink_scale": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1.15,
+          "default": 1.05,
+          "description": "Personal build extension: maximum horizontal Chinese/Japanese ink expansion inside unchanged cells."
         }
       },
       "required": [
