@@ -119,7 +119,7 @@ jobs:
                       assert len(buf.glyph_infos) == len(text), (str(p), text)
                       assert [g.cluster for g in buf.glyph_infos] == list(range(len(text))), (str(p), text)
                       assert all(pos.x_advance == aw for pos in buf.glyph_positions), (str(p), text)
-                  for text in ("A\\u0301", "e\\u0301", "a\\u0308"):
+                  for text in ("Á", "é", "ä"):
                       buf = hb.Buffer()
                       buf.add_str(text)
                       buf.guess_segment_properties()
