@@ -1,4 +1,4 @@
-name: Personal Maple Mono Narrow 300-525 Line 0.90 Style Fix
+name: Personal Maple Mono Narrow and Standard 350-525 Line 0.90
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        width: [narrow]
+        width: [narrow, default]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -42,7 +42,7 @@ jobs:
           python - <<'PY'
           import json, os
           c = json.load(open("final-config.json"))
-          assert c["weight_mapping"]["regular"] == 300
+          assert c["weight_mapping"]["regular"] == 350
           assert c["weight_mapping"]["bold"] == 525
           assert c["infinite_arrow"] is False
           assert c["remove_tag_liga"] is True
@@ -55,18 +55,19 @@ jobs:
           assert c["cn"]["scale_factor"] == [1.0, 1.0]
           assert c["width"] == os.environ["FONT_WIDTH"]
           assert c["line_height"] == 0.90
-          print("Verified:", c["width"], "Regular/Italic 300, Bold/BoldItalic 525")
+          print("Verified:", c["width"], "Regular/Italic 350, Bold/BoldItalic 525")
           PY
       - name: Build font
         run: python build.py $BUILD_ARGS
       - name: Verify generated Chinese fonts
         run: |
           python - <<'PY'
+          import os
           from pathlib import Path
           from fontTools.ttLib import TTFont
           files = list(Path("fonts/CN").glob("*.ttf"))
           assert len(files) == 4, [str(p) for p in files]
-          expected = {"Regular": 300, "Italic": 300, "Bold": 525, "BoldItalic": 525}
+          expected = {"Regular": 350, "Italic": 350, "Bold": 525, "BoldItalic": 525}
           for p in files:
               style = p.stem.rsplit("-", 1)[-1]
               assert style in expected, str(p)
@@ -91,7 +92,8 @@ jobs:
                   assert result["kana"] > 0, result
                   assert not result["coding_features"], result
                   assert not any(excluded_codepoint(cp) for cp in cmap), str(p)
-                  assert aw == 550 and cw == 1100, (str(p), aw, cw)
+                  expected_aw = {"narrow": 550, "default": 600}[os.environ["FONT_WIDTH"]]
+                  assert aw == expected_aw and cw == 2 * expected_aw, (str(p), aw, cw)
                   assert f["post"].isFixedPitch, str(p)
                   assert "Jpan" in str(f["meta"].data)
                   assert f["hhea"].ascent == 918 and f["hhea"].descent == -270, (str(p), f["hhea"].ascent, f["hhea"].descent)
@@ -104,14 +106,14 @@ jobs:
                       hb.shape(hbfont, buf, {tag: True for tag in ("liga", "calt", "dlig", "ss01", "ss02", "ss03", "ss04", "ss07", "ss08", "ss09", "ss10", "ss11")})
                       assert len(buf.glyph_infos) == len(text), (str(p), text)
                       assert [g.cluster for g in buf.glyph_infos] == list(range(len(text))), (str(p), text)
-                      assert all(pos.x_advance == 550 for pos in buf.glyph_positions), (str(p), text)
+                      assert all(pos.x_advance == aw for pos in buf.glyph_positions), (str(p), text)
                   print("FINAL", p.name, result, "shaping checks passed")
                   print(p.name, "outline weight", int(f["meta"].data["owgt"]), "system style weight", f["OS/2"].usWeightClass, "Latin width", aw, "Chinese width", cw)
           PY
       - name: Upload font archives
         uses: actions/upload-artifact@v4
         with:
-          name: Maple-Mono-${{ matrix.width }}-300-525
+          name: Maple-Mono-${{ matrix.width }}-350-525
           path: fonts/archive/*-CN-unhinted.*
           if-no-files-found: error
 
@@ -119,10 +121,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download Narrow font package
+      - name: Download both width packages
         uses: actions/download-artifact@v4
         with:
-          pattern: Maple-Mono-*-300-525
+          pattern: Maple-Mono-*-350-525
           path: packages
           merge-multiple: true
       - name: Create downloadable release
@@ -130,5 +132,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          printf '%s\n' 'Narrow; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Regular/Italic 300; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; standard Regular/Bold system registration 400/700 with physical outline weights 300/525; four linked TTF styles; Chinese/Latin width 1100/550.' > release-notes.txt
-          gh release create "personal-300-525-line090-stylefix-${{ github.run_id }}" packages/*.* --title "Maple Mono CN — Narrow, 300 / 525, line 0.90, fixed style matching" --notes-file release-notes.txt
+          printf '%s\n' 'Narrow and Standard Width; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Regular/Italic 350; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; standard Regular/Bold system registration 400/700 with physical outline weights 350/525; four linked TTF styles; Chinese/Latin widths: Narrow 1100/550, Standard 1200/600.' > release-notes.txt
+          gh release create "personal-350-525-line090-stylefix-${{ github.run_id }}" packages/*.* --title "Maple Mono CN — Narrow and Standard, 350 / 525, line 0.90, fixed style matching" --notes-file release-notes.txt

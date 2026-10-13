@@ -11,14 +11,14 @@
     "thin": 100,
     "extralight": 200,
     "light": 300,
-    "regular": 300,
+    "regular": 350,
     "medium": 500,
     "semibold": 600,
     "bold": 525,
     "extrabold": 800
   },
   "line_height": 0.90,
-  "width": "narrow",
+  "width": "default",
   "feature_freeze": {
     "cv01": "enable",
     "cv02": "enable",

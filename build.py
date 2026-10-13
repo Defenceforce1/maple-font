@@ -1363,6 +1363,10 @@ def build_cn(f: str, font_config: FontConfig, build_option: BuildOption):
         cn_style = {"Regular": "Light", "Italic": "LightItalic"}.get(
             style_compact_cn, cn_style
         )
+    if font_config.weight_mapping["regular"] == 350:
+        cn_style = {"Regular": "Custom350", "Italic": "Custom350Italic"}.get(
+            style_compact_cn, cn_style
+        )
     if font_config.weight_mapping["bold"] == 525:
         cn_style = {"Bold": "Custom525", "BoldItalic": "Custom525Italic"}.get(
             style_compact_cn, cn_style
@@ -1764,44 +1768,47 @@ def build_nerd_fonts(
     build_option.is_nf_built = True
 
 
-def prepare_cn_weight_525(build_option: BuildOption):
-    """Instantiate genuine Chinese 525 outlines from the official variable base."""
+def prepare_cn_custom_weights(build_option: BuildOption, weights):
+    """Instantiate matching Chinese outlines from the official variable base."""
     from fontTools.pens.recordingPen import RecordingPen
     if not download_cn_base_font(
         tag="cn-base", zip_path="cn-base-variable.zip",
         target_dir=build_option.cn_variable_dir,
     ):
         raise RuntimeError("Could not download official CN variable base")
-    sources = [
-        ("MapleMono-CN-VF.ttf", "Custom525"),
-        ("MapleMono-CN-Italic-VF.ttf", "Custom525Italic"),
-    ]
-    for source, style in sources:
+    for source, suffix in (
+        ("MapleMono-CN-VF.ttf", ""),
+        ("MapleMono-CN-Italic-VF.ttf", "Italic"),
+    ):
         variable = TTFont(joinPaths(build_option.cn_variable_dir, source))
         axes = {axis.axisTag: axis for axis in variable["fvar"].axes}
-        assert axes["wght"].minValue <= 525 <= axes["wght"].maxValue
         glyph_name = variable.getBestCmap()[ord("中")]
-        pen500, pen525 = RecordingPen(), RecordingPen()
-        variable.getGlyphSet(location={"wght": 500})[glyph_name].draw(pen500)
-        variable.getGlyphSet(location={"wght": 525})[glyph_name].draw(pen525)
-        assert pen500.value != pen525.value, "CN interpolation did not change outlines"
-        coordinates = {tag: axis.defaultValue for tag, axis in axes.items()}
-        coordinates["wght"] = 525
-        print("Instantiate Chinese", source, "at real wght=525", flush=True)
+        for weight in weights:
+            assert axes["wght"].minValue <= weight <= axes["wght"].maxValue
+            base_weight = 300 if weight == 350 else 500
+            baseline, requested = RecordingPen(), RecordingPen()
+            variable.getGlyphSet(location={"wght": base_weight})[glyph_name].draw(baseline)
+            variable.getGlyphSet(location={"wght": weight})[glyph_name].draw(requested)
+            assert baseline.value != requested.value, "CN interpolation did not change outlines"
         for tag in ("kern", "GPOS"):
             if tag in variable:
                 del variable[tag]
-        static = instantiateVariableFont(
-            variable, coordinates, inplace=False, updateFontNames=False
-        )
-        assert "fvar" not in static and static["OS/2"].usWeightClass == 525
-        if "STAT" in static:
-            del static["STAT"]
-        target = joinPaths(build_option.cn_static_dir, f"MapleMonoCN-{style}.ttf")
-        static.save(target)
-        static.close()
+        for weight in weights:
+            coordinates = {tag: axis.defaultValue for tag, axis in axes.items()}
+            coordinates["wght"] = weight
+            print("Instantiate Chinese", source, "at real wght=", weight, flush=True)
+            static = instantiateVariableFont(
+                variable, coordinates, inplace=False, updateFontNames=False
+            )
+            assert "fvar" not in static and static["OS/2"].usWeightClass == weight
+            if "STAT" in static:
+                del static["STAT"]
+            style = f"Custom{weight}{suffix}"
+            target = joinPaths(build_option.cn_static_dir, f"MapleMonoCN-{style}.ttf")
+            static.save(target)
+            static.close()
+            print("Verified genuine Chinese outlines:", weight, target, flush=True)
         variable.close()
-        print("Verified genuine Chinese 525 outlines:", target, flush=True)
 
 
 def build_chinese_fonts(
@@ -1811,8 +1818,13 @@ def build_chinese_fonts(
     if not build_option.should_build_cn(font_config):
         return
 
+    custom_weights = []
+    if font_config.weight_mapping["regular"] == 350:
+        custom_weights.append(350)
     if font_config.weight_mapping["bold"] == 525:
-        prepare_cn_weight_525(build_option)
+        custom_weights.append(525)
+    if custom_weights:
+        prepare_cn_custom_weights(build_option, custom_weights)
 
     def _build_cn(with_nf: bool = False):
         print(f"\n🔎 Build CN fonts {'with Nerd-Font' if with_nf else ''}...\n")

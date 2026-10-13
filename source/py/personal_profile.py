@@ -120,9 +120,9 @@ def apply_chinese_only_profile(font):
     if "meta" in font:
         for key in ("dlng", "slng"):
             font["meta"].data[key] = "Latn, Hans, Hant, Jpan"
-    # Keep the 550-unit Latin metric, because recalculation over many CJK
+    # Keep the Latin metric for the selected width; recalculation over CJK
     # glyphs would otherwise change the family metric.
-    font["OS/2"].xAvgCharWidth = 550
+    font["OS/2"].xAvgCharWidth = font["hmtx"].metrics[font.getBestCmap()[ord("A")]][0]
     result = audit_font(font)
     assert result["private_use"] == 0, result
     assert result["nonmark_ligatures"] == 0 and not result["coding_features"], result
