@@ -1,4 +1,4 @@
-name: Personal Maple Mono Compact Latin 400 Chinese 300 Bold 525
+name: Personal Maple Mono Compact Latin 300 Chinese 300 Bold 525
 
 on:
   workflow_dispatch:
@@ -43,7 +43,7 @@ jobs:
           python - <<'PY'
           import json, os
           c = json.load(open("final-config.json"))
-          assert c["weight_mapping"]["regular"] == 400
+          assert c["weight_mapping"]["regular"] == 300
           assert c["weight_mapping"]["bold"] == 525
           assert c["cn"]["weight_mapping"] == {"regular": 300, "bold": 525}
           assert c["cn"]["latin_ink_scale"] == 1.08
@@ -59,7 +59,7 @@ jobs:
           assert c["cn"]["scale_factor"] == [1.0, 1.0]
           assert c["width"] == os.environ["FONT_WIDTH"]
           assert c["line_height"] == 0.90
-          print("Verified:", c["width"], "Regular/Italic 400, Bold/BoldItalic 525")
+          print("Verified:", c["width"], "Regular/Italic 300, Bold/BoldItalic 525")
           PY
       - name: Build font
         run: python build.py $BUILD_ARGS
@@ -71,7 +71,7 @@ jobs:
           from fontTools.ttLib import TTFont
           files = list(Path("fonts/CN").glob("*.ttf"))
           assert len(files) == 4, [str(p) for p in files]
-          expected = {"Regular": 400, "Italic": 400, "Bold": 525, "BoldItalic": 525}
+          expected = {"Regular": 300, "Italic": 300, "Bold": 525, "BoldItalic": 525}
           for p in files:
               style = p.stem.rsplit("-", 1)[-1]
               assert style in expected, str(p)
@@ -141,7 +141,7 @@ jobs:
       - name: Upload font archives
         uses: actions/upload-artifact@v4
         with:
-          name: Maple-Mono-${{ matrix.width }}-400-525
+          name: Maple-Mono-${{ matrix.width }}-300-525
           path: fonts/archive/*-CN-unhinted.*
           if-no-files-found: error
 
@@ -152,7 +152,7 @@ jobs:
       - name: Download both width packages
         uses: actions/download-artifact@v4
         with:
-          pattern: Maple-Mono-*-400-525
+          pattern: Maple-Mono-*-300-525
           path: packages
           merge-multiple: true
       - name: Create downloadable release
@@ -160,5 +160,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          printf '%s\n' 'Compact ink profile; independent ink expansion: Latin up to 8 percent and Chinese/Japanese up to 3 percent inside unchanged Narrow cells; existing overhangs and box drawing preserved; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Latin Regular/Italic 400 and Chinese/Japanese Regular/Italic 300; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; standard Regular/Bold system registration 400/700 with source outline weights Latin 400/525, Chinese/Japanese 300/525; four linked TTF styles; Chinese/Latin widths 1100/550.' > release-notes.txt
-          gh release create "personal-compact-l400-c300-b525-x108-103-line090-${{ github.run_id }}" packages/*.* --title "Maple Mono Compact CN — Latin 400 +8%, Chinese 300 +3%, Bold 525, line 0.90, fixed style matching" --notes-file release-notes.txt
+          printf '%s\n' 'Compact ink profile; independent ink expansion: Latin up to 8 percent and Chinese/Japanese up to 3 percent inside unchanged Narrow cells; existing overhangs and box drawing preserved; original character variants retained; CN and Japanese supported; no programming ligatures or private-use icons; unhinted; Latin Regular/Italic 300 and Chinese/Japanese Regular/Italic 300; genuine Latin and Chinese Bold/BoldItalic 525; line_height 0.90; standard Regular/Bold system registration 400/700 with source outline weights Latin 300/525, Chinese/Japanese 300/525; four linked TTF styles; Chinese/Latin widths 1100/550.' > release-notes.txt
+          gh release create "personal-compact-l300-c300-b525-x108-103-line090-${{ github.run_id }}" packages/*.* --title "Maple Mono Compact CN — Latin 300 +8%, Chinese 300 +3%, Bold 525, line 0.90, fixed style matching" --notes-file release-notes.txt

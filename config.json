@@ -1,5 +1,5 @@
 {
-  "family_name": "Maple Mono Compact L400 C300",
+  "family_name": "Maple Mono Compact L300 C300",
   "use_hinted": false,
   "pool_size": 4,
   "enable_ligature": false,
@@ -11,7 +11,7 @@
     "thin": 100,
     "extralight": 200,
     "light": 300,
-    "regular": 400,
+    "regular": 300,
     "medium": 500,
     "semibold": 600,
     "bold": 525,
