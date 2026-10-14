@@ -1,5 +1,5 @@
 {
-  "family_name": "Maple Mono Compact C300",
+  "family_name": "Maple Mono Compact L400 C300",
   "use_hinted": false,
   "pool_size": 4,
   "enable_ligature": false,
@@ -11,7 +11,7 @@
     "thin": 100,
     "extralight": 200,
     "light": 300,
-    "regular": 350,
+    "regular": 400,
     "medium": 500,
     "semibold": 600,
     "bold": 525,
@@ -80,7 +80,7 @@
     "extra_args": []
   },
   "cn": {
-    "latin_ink_scale": 1.05,
+    "latin_ink_scale": 1.08,
     "ink_scale": 1.03,
     "weight_mapping": {
       "regular": 300,
